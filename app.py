@@ -17,7 +17,7 @@ st.write("Upload an image to detect defects.")
 @st.cache_resource
 def load_model():
     return YOLO(
-        r"C:\Users\cherr\Desktop\DL.project\runs\detect\runs\Defect_Detection-28\weights\best.pt"
+        "best.pt"
     )
 
 
