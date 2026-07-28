@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("🤖 YOLOv8 Defect Detection System")
-st.write("Upload an image or choose a sample image to detect defects.")
+st.write("Upload an image, use your webcam, or choose a sample image to detect defects.")
 
 # ---------------- Load Model ----------------
 @st.cache_resource
@@ -21,16 +21,20 @@ def load_model():
 
 model = load_model()
 
-# ---------------- Choose Input ----------------
+# ---------------- Input Method ----------------
 option = st.radio(
-    "Choose an option",
-    ["📤 Upload Your Image", "🖼️ Use Sample Image"]
+    "Choose Input Method",
+    [
+        "📤 Upload Image",
+        "📷 Take Photo",
+        "🖼️ Use Sample Image"
+    ]
 )
 
 image = None
 
-# ---------------- Upload ----------------
-if option == "📤 Upload Your Image":
+# ---------------- Upload Image ----------------
+if option == "📤 Upload Image":
 
     uploaded_file = st.file_uploader(
         "Choose an Image",
@@ -40,10 +44,19 @@ if option == "📤 Upload Your Image":
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
 
+# ---------------- Webcam ----------------
+elif option == "📷 Take Photo":
+
+    camera_image = st.camera_input("Capture an Image")
+
+    if camera_image is not None:
+        image = Image.open(camera_image)
+
 # ---------------- Sample Images ----------------
 else:
 
-    sample_folder = "sample_images"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sample_folder = os.path.join(BASE_DIR, "sample_images")
 
     if os.path.exists(sample_folder):
 
@@ -84,10 +97,10 @@ else:
                 image = Image.open(image_path)
 
             else:
-                st.warning("No images found in this folder.")
+                st.warning("No images found in this defect folder.")
 
         else:
-            st.warning("No defect folders found.")
+            st.warning("No defect folders found inside sample_images.")
 
     else:
         st.error("sample_images folder not found.")
@@ -109,7 +122,7 @@ if image is not None:
 
         results = model.predict(
             source=temp_path,
-            conf=0.05,
+            conf=0.25,
             save=False
         )
 
@@ -127,6 +140,7 @@ if image is not None:
         st.warning("No defects detected.")
 
     else:
+
         st.success(f"Detected {len(result.boxes)} defect(s).")
 
         st.subheader("Detection Details")
