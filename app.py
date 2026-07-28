@@ -2,6 +2,7 @@ import streamlit as st
 from ultralytics import YOLO
 from PIL import Image
 import tempfile
+import os
 
 # ---------------- Page Configuration ----------------
 st.set_page_config(
@@ -11,53 +12,109 @@ st.set_page_config(
 )
 
 st.title("🤖 YOLOv8 Defect Detection System")
-st.write("Upload an image to detect defects.")
+st.write("Upload an image or choose a sample image to detect defects.")
 
 # ---------------- Load Model ----------------
 @st.cache_resource
 def load_model():
-    return YOLO(
-        "best.pt"
-    )
-
-
-
+    return YOLO("best.pt")
 
 model = load_model()
 
-# ---------------- Upload Image ----------------
-uploaded_file = st.file_uploader(
-    "Choose an Image",
-    type=["jpg", "jpeg", "png"]
+# ---------------- Choose Input ----------------
+option = st.radio(
+    "Choose an option",
+    ["📤 Upload Your Image", "🖼️ Use Sample Image"]
 )
 
-if uploaded_file is not None:
+image = None
 
-    image = Image.open(uploaded_file)
+# ---------------- Upload ----------------
+if option == "📤 Upload Your Image":
+
+    uploaded_file = st.file_uploader(
+        "Choose an Image",
+        type=["jpg", "jpeg", "png"]
+    )
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+
+# ---------------- Sample Images ----------------
+else:
+
+    sample_folder = "sample_images"
+
+    if os.path.exists(sample_folder):
+
+        defect_classes = sorted([
+            folder for folder in os.listdir(sample_folder)
+            if os.path.isdir(os.path.join(sample_folder, folder))
+        ])
+
+        if defect_classes:
+
+            selected_class = st.selectbox(
+                "Select Defect Type",
+                defect_classes
+            )
+
+            class_folder = os.path.join(
+                sample_folder,
+                selected_class
+            )
+
+            sample_images = sorted([
+                img for img in os.listdir(class_folder)
+                if img.lower().endswith((".jpg", ".jpeg", ".png"))
+            ])
+
+            if sample_images:
+
+                selected_image = st.selectbox(
+                    "Select Sample Image",
+                    sample_images
+                )
+
+                image_path = os.path.join(
+                    class_folder,
+                    selected_image
+                )
+
+                image = Image.open(image_path)
+
+            else:
+                st.warning("No images found in this folder.")
+
+        else:
+            st.warning("No defect folders found.")
+
+    else:
+        st.error("sample_images folder not found.")
+
+# ---------------- Prediction ----------------
+if image is not None:
 
     col1, col2 = st.columns(2)
 
-    # Original Image
     with col1:
         st.subheader("Original Image")
         st.image(image, use_container_width=True)
 
-    # Save uploaded image temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp:
         image.save(temp.name)
         temp_path = temp.name
 
-    # Prediction
     with st.spinner("Running Detection..."):
+
         results = model.predict(
             source=temp_path,
-            conf=0.25,
+            conf=0.05,
             save=False
         )
 
     result = results[0]
 
-    # Annotated Image
     annotated_image = result.plot()
 
     with col2:
@@ -68,12 +125,14 @@ if uploaded_file is not None:
 
     if len(result.boxes) == 0:
         st.warning("No defects detected.")
+
     else:
         st.success(f"Detected {len(result.boxes)} defect(s).")
 
         st.subheader("Detection Details")
 
         for i, box in enumerate(result.boxes):
+
             cls = int(box.cls[0])
             confidence = float(box.conf[0])
 
